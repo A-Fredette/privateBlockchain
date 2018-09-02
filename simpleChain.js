@@ -127,40 +127,32 @@ class Blockchain {
     }).catch(error => console.log('Validate Block error: ', error));
   }
 
-  // Validate blockchain
-  validateChain() {
-    let errorLog = [];
-    let blocks = [];
+  async validateChain() {
+    let errorLog =[];
+    let height = await this.getBlockHeight();
 
-    this.getBlockHeight().then(chainHeight => {
+    for (let i = 0; i < height; i++) {
+      let currentBlock = await this.getBlock(i);
 
-      for (let i = 0; i <= chainHeight; i++) {
-        this.validateBlock(i).then(result => {if (!result) errorLog.push(result); }); //validate blocks
-        blocks.push(this.getBlock(i));
+      if (!(await this.validateBlock(i))) errorLog.push(i);
+
+      let blockHash = currentBlock.hash;
+      let previousHash = (await this.getBlock(i+1)).previousBlockHash;
+
+      if (blockHash !== previousHash) {
+        errorLog.push(i);
       }
-
-      Promise.all(blocks).then(result => {
-        console.log('First Hash', result[0].hash);
-
-        if (result.length > 1) {
-          for (let b = 1; b <= result.length; b++) {
-
-            let blockHash = result[b].hash;
-            let previousHash = (result[b+1]) ? result[b+1].previousBlockHash : null;
-
-            if (blockHash !== previousHash && previousHash !== null) {
-              errorLog.push('Error linking blockchain at block position #', b);
-            }
-          }  
-        }
-      });
-    });
-
-    if (errorLog.length > 1 ) {
-      return errorLog;
     }
-
-    return true;
+    if (errorLog.length > 0) {
+      console.log('Errors at blocks: '+ errorLog);
+    } else {
+      console.log('No errors detected');
+    }
   }
 
 }
+
+let b = new Blockchain();
+b.addBlock(new Block('second block'));
+b.validateChain();
+
