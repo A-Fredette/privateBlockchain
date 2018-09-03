@@ -26,6 +26,7 @@ function getLevelDBData(key) {
     db.get(key, function(err, value) {
       if (err) { reject('error ', err); }
       block = JSON.parse(value);
+      console.log('Block: ', block);
       resolve(block);
     });
   }).catch(error => { console.log(error); });
@@ -65,28 +66,53 @@ class Block {
 class Blockchain {
   constructor(){
     this.chain = [];
-    this.addBlock(new Block('Genesis Block'));
-    this.height = 0;
+    addLevelDBData('height', 0); //set initial height to 0
+    this.createGenesisBlock();
   }
 
-  // Add new block
-  addBlock(newBlock){
-    newBlock.height = this.chain.length; // Block height
-    newBlock.time = new Date().getTime().toString().slice(0,-3); // UTC timestamp
-    newBlock.hash = SHA256(JSON.stringify(newBlock)).toString(); // Block hash with SHA256 using newBlock and converting to a string
+//Create a genesis block if there isn't one
+  createGenesisBlock() {
+    this.getBlockHeight()
+    .then(result => {
+      if (result === 0) {
+        this.addBlock(new Block('Genesis Block'));
+      }
+    });
+  }
 
-    // previous block hash
-    if(this.chain.length > 0) {
-      newBlock.previousBlockHash = this.chain[this.chain.length-1].hash;
+  //Add new block
+  addBlock(newBlock) {
+    return new Promise((resolve, reject) => {
+      this.getBlockHeight()
+      .then(chainHeight => {
+        console.info('chainHeight ', chainHeight);
+        newBlock.height = chainHeight + 1; //Block Height
+        console.log('new block ht ', newBlock.height);
+        newBlock.time = new Date().getTime().toString().slice(0,-3); //UTC timestamp
+        newBlock.hash = SHA256(JSON.stringify(newBlock)).toString(); //Block hash with SHA256 using newBlock and converting to a string
+
+        if (chainHeight > 0) {
+          this.getBlock(chainHeight)
+          .then(previousChain => {
+            newBlock.previousBlockHash = previousChain.hash;
+            return newBlock;
+          });
+        }
+
+        return newBlock;
+
+      }).then(newBlock => {
+        
+          addLevelDBData(newBlock.height, JSON.stringify(newBlock));
+          addLevelDBData('height', newBlock.height);
+
+          this.chain.push(newBlock); //Not for storage, for testing purposes
+
+          resolve();
+
+        }).catch('Unable to add new block :', error);
+      });
     }
-
-    // Adding block object to chain
-  	this.chain.push(newBlock);
-
-    // Store in LevelDB
-    addLevelDBData(newBlock.height, JSON.stringify(newBlock));
-    addLevelDBData('height', newBlock.height);
-  }
 
   //Get current block height from LevelDB
   getBlockHeight() {
@@ -130,6 +156,7 @@ class Blockchain {
   async validateChain() {
     let errorLog =[];
     let height = await this.getBlockHeight();
+    console.log('HEIGHT', height);
 
     for (let i = 0; i < height; i++) {
       let currentBlock = await this.getBlock(i);
@@ -137,9 +164,11 @@ class Blockchain {
       if (!(await this.validateBlock(i))) errorLog.push(i);
 
       let blockHash = currentBlock.hash;
+      console.log(blockHash);
       let previousHash = (await this.getBlock(i+1)).previousBlockHash;
+      console.log(previousHash);
 
-      if (blockHash !== previousHash) {
+      if (blockHash !== previousHash && height > 1) {
         errorLog.push(i);
       }
     }
@@ -153,6 +182,5 @@ class Blockchain {
 }
 
 let b = new Blockchain();
-b.addBlock(new Block('second block'));
-b.validateChain();
-
+//b.addBlock(new Block('second block'));
+//b.validateChain();
