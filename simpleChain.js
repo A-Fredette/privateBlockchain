@@ -84,7 +84,10 @@ class Blockchain {
         console.log('Block: ', block);
         resolve(block);
       });
-    }).catch(error => { console.log(error); });
+    }).catch(error => { 
+      console.log(error); 
+      reject(error);
+    });
   }
 
   //Add new block
@@ -101,14 +104,11 @@ class Blockchain {
           .then(previousChain => {
             newBlock.previousBlockHash = previousChain.hash;
 
-            /*this.addLevelDBData(newBlock.height, JSON.stringify(newBlock));
-            this.addLevelDBData('height', newBlock.height);
-
-            this.chain.push(newBlock); //Not for storage, for testing */
-
             resolve();
+
           }).catch(error => {
             console.log('Error comparing block hashes: ', error);
+            reject(error);
           });
         }
 
