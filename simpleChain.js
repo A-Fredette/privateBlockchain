@@ -103,26 +103,18 @@ class Blockchain {
           this.getBlock(chainHeight)
           .then(previousChain => {
             newBlock.previousBlockHash = previousChain.hash;
-
-            resolve();
-
           }).catch(error => {
             console.log('Error comparing block hashes: ', error);
-            reject(error);
           });
         }
-
         return newBlock;
 
       }).then(newBlock => {
-        
           this.addLevelDBData(newBlock.height, JSON.stringify(newBlock));
           this.addLevelDBData('height', newBlock.height);
-
           this.chain.push(newBlock); //Not for storage, for testing
 
           resolve();
-
         }).catch(error => {
             console.log('Unable with get block height with error: ', error);
             reject(error);
